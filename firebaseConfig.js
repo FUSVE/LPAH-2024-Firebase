@@ -1,15 +1,18 @@
+// firebaseConfig.js
 import { initializeApp } from "firebase/app";
-import { getFirestore } from 'firebase/firestore/lite';
+import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAIghHY_F7AOh_EZwGFTySwfSUDuBCD2C4",
-  authDomain: "aula-37149.firebaseapp.com",
-  projectId: "aula-37149",
-  storageBucket: "aula-37149.appspot.com",
-  messagingSenderId: "729987422452",
-  appId: "1:729987422452:web:a6aff047016dad2c6926a1"
+    apiKey: "AIzaSyDAUtiImFv7VphBCzlmHdbvgEq-e6l9vNk",
+    authDomain: "aula-1a155.firebaseapp.com",
+    databaseURL: "https://aula-1a155-default-rtdb.firebaseio.com",
+    projectId: "aula-1a155",
+    storageBucket: "aula-1a155.firebasestorage.app",
+    messagingSenderId: "838596536693",
+    appId: "1:838596536693:web:d52f1b0faf7461a5f18b3c"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getDatabase(app);
+
+export { db };

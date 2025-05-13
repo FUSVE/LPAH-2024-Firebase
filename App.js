@@ -1,86 +1,99 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, Button, FlatList } from 'react-native';
-import { initDB, insertTask, fetchTasks, deleteTask, updateTask, syncTasksWithFirebase } from './Database';
+import { View, TextInput, Button, FlatList, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { db } from './firebaseConfig';
+import { ref, push, onValue, remove, update } from 'firebase/database';
 
 export default function App() {
   const [task, setTask] = useState('');
-  const [tasks, setTasks] = useState([]);
+  const [savedTasks, setSavedTasks] = useState([]);
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
-    initDB();
-    loadTasks();
-    syncTasksWithFirebase();
+    const tasksRef = ref(db, 'tasks');
+
+    const unsubscribe = onValue(tasksRef, snapshot => {
+      const data = snapshot.val();
+      if (data) {
+        const parsedTasks = Object.keys(data).map(key => ({
+          id: key,
+          description: data[key].description
+        }));
+        setSavedTasks(parsedTasks.reverse());
+      } else {
+        setSavedTasks([]);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const loadTasks = () => {
-    fetchTasks((success, data) => {
-      if (success) setTasks(data);
-    });
-  };
+  const handleAddOrEditTask = async () => {
+    if (task.trim() === '') return;
 
-  const handleDelete = (id) => {
-    deleteTask(id, (success, data) => {
-      if (success) loadTasks();
-    });
-  };
-
-  const handleEdit = (id, title) => {
-    setTask(title);
-    setEditId(id);
-  };
-
-  const handleUpdate = () => {
-    if (editId !== null) {
-      updateTask(editId, task, false, (success, data) => {
-        if (success) {
-          setTask('');
-          setEditId(null);
-          loadTasks();
-        }
-      });
-    }
-  };
-
-  const handleSubmit = () => {
-    if (editId !== null) {
-      handleUpdate();
-    } else {
-      if (task !== '') {
-        insertTask(task, false, (success, data) => {
-          if (success) {
-            setTask('');
-            loadTasks();
-          }
+    try {
+      const tasksRef = ref(db, 'tasks');
+      if (editId) {
+        const editRef = ref(db, `tasks/${editId}`);
+        await update(editRef, { description: task });
+        setEditId(null);
+      } else {
+        await push(tasksRef, {
+          description: task,
+          createdAt: new Date().toISOString()
         });
       }
+      setTask('');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível salvar a tarefa.');
+      console.error(error);
     }
   };
+
+  const handleDeleteTask = async (id) => {
+    try {
+      const taskRef = ref(db, `tasks/${id}`);
+      await remove(taskRef);
+      if (editId === id) {
+        setTask('');
+        setEditId(null);
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível remover a tarefa.');
+      console.error(error);
+    }
+  };
+
+  const handleEditPress = (item) => {
+    setTask(item.description);
+    setEditId(item.id);
+  };
+
+  const renderItem = ({ item }) => (
+    <View style={styles.taskContainer}>
+      <TouchableOpacity onPress={() => handleEditPress(item)}>
+        <Text style={styles.taskText}>{item.description}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleDeleteTask(item.id)} style={styles.deleteButton}>
+        <Text style={styles.deleteText}>Remover</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nova tarefa"
-          value={task}
-          onChangeText={setTask}
-        />
-        <Button title={editId ? "Atualizar tarfea" : "Adicionar tarefa"} onPress={handleSubmit} />
-        <FlatList
-          data={tasks}
-          keyExtractor={item => item.id.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.listItem}>
-              <Text>{item.title}</Text>
-              <View style={styles.buttons}>
-                <Button title="Editar" onPress={() => handleEdit(item.id, item.title)} />
-                <Button title="Deletar" onPress={() => handleDelete(item.id)} />
-              </View>
-            </View>
-          )}
-        />
-      </View>
+      <Text style={styles.title}>Tarefas</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Digite sua tarefa"
+        value={task}
+        onChangeText={setTask}
+      />
+      <Button title={editId ? "Salvar edição" : "Adicionar"} onPress={handleAddOrEditTask} />
+      <FlatList
+        data={savedTasks}
+        keyExtractor={item => item.id}
+        renderItem={renderItem}
+      />
     </View>
   );
 }
@@ -88,28 +101,41 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 100,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff'
   },
-  content: {
-    width: '90%',
+  title: {
+    fontSize: 24,
+    marginBottom: 20,
+    fontWeight: 'bold'
   },
   input: {
-    width: '90%',
-    height: 40,
-    borderColor: 'gray',
     borderWidth: 1,
-    marginBottom: 10,
-  },
-  listItem: {
     padding: 10,
-    marginTop: 5,
-    backgroundColor: 'lightgray',
-    width: '90%',
+    marginBottom: 10,
+    borderRadius: 5
   },
-  buttons: {
+  taskContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderBottomWidth: 0.5,
+    borderColor: '#ccc'
   },
+  taskText: {
+    fontSize: 16,
+    maxWidth: '100%'
+  },
+  deleteButton: {
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5
+  },
+  deleteText: {
+    color: '#fff',
+    fontWeight: 'bold'
+  }
 });
