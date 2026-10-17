@@ -11,12 +11,12 @@
     "doctor": "expo-doctor"
   },
   "dependencies": {
-    "expo": "~54.0.0",
-    "expo-dev-client": "~6.0.0",
-    "expo-status-bar": "~3.0.8",
+    "expo": "~57.0.30",
+    "expo-dev-client": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
     "firebase": "^12.0.0",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react": "19.2.3",
+    "react-native": "0.86.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
